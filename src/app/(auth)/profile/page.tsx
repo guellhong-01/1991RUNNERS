@@ -98,7 +98,7 @@ export default function ProfilePage() {
                   </td>
                   <td className="px-4 py-3"><GradeBadge grade={p.grade} role={p.role} /></td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                    {p.joined_at ? format(new Date(p.joined_at), 'yyyy.MM.dd', { locale: ko }) : '-'}
+                    {p.joined_at ? format(new Date(p.joined_at), 'yyyy.MM', { locale: ko }) : '-'}
                   </td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                     {p.birthday ? format(new Date(p.birthday), 'MM/dd') : '-'}
