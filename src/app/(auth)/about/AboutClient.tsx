@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Pencil, Check, X, Upload } from 'lucide-react'
+import { compressImage } from '@/lib/compressImage'
 
 interface Props {
   isAdmin: boolean
@@ -28,9 +29,10 @@ export default function AboutClient({ isAdmin, initialDescription, initialBanner
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const ext = file.name.split('.').pop()
+    const compressed = await compressImage(file, 1600, 0.8)
+    const ext = compressed.name.split('.').pop()
     const path = `banner_${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('club-images').upload(path, file)
+    const { error } = await supabase.storage.from('club-images').upload(path, compressed)
     if (!error) {
       const { data } = supabase.storage.from('club-images').getPublicUrl(path)
       const url = data.publicUrl
