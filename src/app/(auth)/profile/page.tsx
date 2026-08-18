@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import Link from 'next/link'
-import { AtSign, Edit, Search } from 'lucide-react'
+import { AtSign, Edit, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -12,6 +12,8 @@ export default function ProfilePage() {
   const [currentProfile, setCurrentProfile] = useState<any>(null)
   const [userId, setUserId] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortKey, setSortKey] = useState<'default' | 'name' | 'joined_at' | 'birthday'>('default')
+  const [sortAsc, setSortAsc] = useState(true)
 
   useEffect(() => {
     const load = async () => {
@@ -29,9 +31,32 @@ export default function ProfilePage() {
     load()
   }, [])
 
-  const filtered = profiles.filter(p =>
-    p.name?.includes(searchQuery)
-  )
+  const toggleSort = (key: 'name' | 'joined_at' | 'birthday') => {
+    if (sortKey === key) {
+      setSortAsc(!sortAsc)
+    } else {
+      setSortKey(key)
+      setSortAsc(true)
+    }
+  }
+
+  const filtered = profiles
+    .filter(p => p.name?.includes(searchQuery))
+    .sort((a, b) => {
+      if (sortKey === 'default') return 0
+      const av = a[sortKey]
+      const bv = b[sortKey]
+      if (!av && !bv) return 0
+      if (!av) return 1
+      if (!bv) return -1
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0
+      return sortAsc ? cmp : -cmp
+    })
+
+  const SortIcon = ({ column }: { column: 'name' | 'joined_at' | 'birthday' }) => {
+    if (sortKey !== column) return <ArrowUpDown size={12} className="text-gray-300" />
+    return sortAsc ? <ArrowUp size={12} className="text-[#c0392b]" /> : <ArrowDown size={12} className="text-[#c0392b]" />
+  }
 
   const GradeBadge = ({ grade, role }: { grade?: string; role: string }) => {
     const label = role === 'admin' ? '운영진' : (grade || '준회원')
@@ -70,10 +95,16 @@ export default function ProfilePage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-32">이름</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-32">
+                  <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-gray-900">이름 <SortIcon column="name" /></button>
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-16">등급</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-24">가입일</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-16">생일</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-24">
+                  <button onClick={() => toggleSort('joined_at')} className="flex items-center gap-1 hover:text-gray-900">가입일 <SortIcon column="joined_at" /></button>
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-16">
+                  <button onClick={() => toggleSort('birthday')} className="flex items-center gap-1 hover:text-gray-900">생일 <SortIcon column="birthday" /></button>
+                </th>
                 {currentProfile?.role === 'admin' && (
                   <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-28">전화번호</th>
                 )}
