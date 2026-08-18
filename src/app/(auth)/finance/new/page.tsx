@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { FINANCE_CATEGORIES } from '@/types'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { compressImage } from '@/lib/compressImage'
 
 export default function NewFinancePage() {
   const router = useRouter()
@@ -25,9 +26,10 @@ export default function NewFinancePage() {
 
   const handleImageUpload = async (file: File) => {
     setImageUploading(true)
-    const ext = file.name.split('.').pop()
+    const compressed = await compressImage(file, 1280, 0.8)
+    const ext = compressed.name.split('.').pop()
     const path = `finances/${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('archive-images').upload(path, file)
+    const { error } = await supabase.storage.from('archive-images').upload(path, compressed)
     if (!error) {
       const { data } = supabase.storage.from('archive-images').getPublicUrl(path)
       setImageUrl(data.publicUrl)
