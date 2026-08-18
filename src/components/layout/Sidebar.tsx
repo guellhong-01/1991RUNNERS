@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
 import { Calendar, Megaphone, Wallet, Settings, LogOut, Home, Users, BookOpen, ClipboardList, Archive, ChevronDown, ChevronRight, Newspaper, Star, MessageSquare, Menu, X, Pencil, Camera, Trophy, Map } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { compressImage } from '@/lib/compressImage'
 
 export default function Sidebar({ profile }: { profile: Profile }) {
   const pathname = usePathname()
@@ -55,9 +56,10 @@ export default function Sidebar({ profile }: { profile: Profile }) {
     const file = e.target.files?.[0]
     if (!file) return
     setAvatarUploading(true)
-    const ext = file.name.split('.').pop()
+    const compressed = await compressImage(file, 320, 0.85)
+    const ext = compressed.name.split('.').pop()
     const path = `${profile.id}/avatar_${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    const { error } = await supabase.storage.from('avatars').upload(path, compressed, { upsert: true })
     if (!error) {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', profile.id)
