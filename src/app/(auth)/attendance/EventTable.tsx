@@ -37,13 +37,26 @@ export default function EventTable({ profiles, events, attendanceMap, isAdmin }:
   const [localMap, setLocalMap] = useState<Record<string, string[]>>(attendanceMap)
   const [confirm, setConfirm] = useState<{ userId: string; eventId: string; name: string; title: string; attended: boolean } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [tooltip, setTooltip] = useState<string | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [modalSearch, setModalSearch] = useState('')
 
   const getCount = (userId: string) => localMap[userId]?.length ?? 0
   const filtered = profiles.filter(p => p.name?.includes(search))
   const sorted = [...filtered].sort((a, b) => getCount(b.id) - getCount(a.id))
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
   const paged = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  const attendedList = selectedEvent
+    ? profiles.filter(p => (localMap[p.id] ?? []).includes(selectedEvent.id) && p.name?.includes(modalSearch))
+    : []
+  const notAttendedList = selectedEvent
+    ? profiles.filter(p => !(localMap[p.id] ?? []).includes(selectedEvent.id) && p.name?.includes(modalSearch))
+    : []
+
+  const openEventModal = (event: Event) => {
+    setModalSearch('')
+    setSelectedEvent(event)
+  }
 
   const handleCellClick = (profile: Profile, event: Event) => {
     if (!isAdmin) return
@@ -93,6 +106,60 @@ export default function EventTable({ profiles, events, attendanceMap, isAdmin }:
         </div>
       )}
 
+      {/* 이벤트별 참석 현황 팝업 */}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`inline-flex px-1.5 py-0.5 rounded text-xs whitespace-nowrap ${TYPE_COLORS[selectedEvent.event_type] || 'bg-gray-100 text-gray-600'}`}>
+                {TYPE_LABELS[selectedEvent.event_type] || selectedEvent.event_type}
+              </span>
+              <span className="text-xs text-gray-400">{format(new Date(selectedEvent.event_date), 'yyyy.M.d (EEE)', { locale: ko })}</span>
+            </div>
+            <p className="text-gray-900 font-bold text-lg mb-3">{selectedEvent.title}</p>
+
+            <div className="relative mb-4">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={modalSearch}
+                onChange={e => setModalSearch(e.target.value)}
+                placeholder="이름 검색..."
+                style={{ fontSize: '16px' }}
+                className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#c0392b]"
+              />
+            </div>
+
+            <p className="text-xs font-medium text-green-600 mb-2">참석 {attendedList.length}명</p>
+            <div className="space-y-1 mb-4">
+              {attendedList.length === 0 ? (
+                <p className="text-xs text-gray-300 mb-2">없음</p>
+              ) : attendedList.map(p => (
+                <div key={p.id} className="flex items-center gap-2 py-1">
+                  <Avatar profile={p} />
+                  <span className="text-sm text-gray-800">{p.name}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs font-medium text-gray-400 mb-2">불참/미기록 {notAttendedList.length}명</p>
+            <div className="space-y-1">
+              {notAttendedList.map(p => (
+                <div key={p.id} className="flex items-center gap-2 py-1 opacity-50">
+                  <Avatar profile={p} />
+                  <span className="text-sm text-gray-600">{p.name}</span>
+                </div>
+              ))}
+            </div>
+
+            {attendedList.length === 0 && notAttendedList.length === 0 && (
+              <p className="text-xs text-gray-300 text-center py-4">검색 결과가 없습니다</p>
+            )}
+
+            <button onClick={() => setSelectedEvent(null)} className="w-full mt-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">닫기</button>
+          </div>
+        </div>
+      )}
+
       {isAdmin && (
         <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
           <span className="text-blue-500 text-sm">✏️</span>
@@ -115,25 +182,16 @@ export default function EventTable({ profiles, events, attendanceMap, isAdmin }:
                 <th className="px-3 py-3 font-medium text-gray-600 text-center min-w-12">총</th>
                 {events.map(event => (
                   <th key={event.id} className="px-2 py-3 font-medium text-gray-600 text-center min-w-16 relative">
-                    <div className="flex flex-col items-center gap-0.5">
+                    <button
+                      onClick={() => openEventModal(event)}
+                      className="flex flex-col items-center gap-0.5 w-full hover:bg-gray-100 rounded-lg py-1 transition-colors"
+                    >
                       <div className={`inline-flex px-1.5 py-0.5 rounded text-xs whitespace-nowrap ${TYPE_COLORS[event.event_type] || 'bg-gray-100 text-gray-600'}`}>
                         {TYPE_LABELS[event.event_type] || event.event_type}
                       </div>
                       <div className="text-gray-400 font-normal text-xs">{format(new Date(event.event_date), 'M/d', { locale: ko })}</div>
-                      <div
-                        className="text-gray-500 text-xs truncate max-w-14 cursor-pointer relative"
-                        onMouseEnter={() => setTooltip(event.id)}
-                        onMouseLeave={() => setTooltip(null)}
-                        onClick={() => setTooltip(tooltip === event.id ? null : event.id)}
-                      >
-                        {event.title}
-                        {tooltip === event.id && (
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-20 shadow-lg">
-                            {event.title}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      <div className="text-gray-500 text-xs truncate max-w-14">{event.title}</div>
+                    </button>
                   </th>
                 ))}
               </tr>
