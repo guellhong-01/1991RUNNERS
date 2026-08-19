@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { backfillActivities } from '@/lib/strava'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -44,6 +45,12 @@ export async function GET(request: NextRequest) {
     },
     { onConflict: 'user_id' }
   )
+
+  try {
+    await backfillActivities(admin, user.id, tokenData.access_token)
+  } catch (e) {
+    console.error('Strava backfill error', e)
+  }
 
   return NextResponse.redirect(`${origin}/strava?connected=1`)
 }
