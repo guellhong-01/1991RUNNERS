@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const tokenData = await tokenRes.json()
 
   const admin = createAdminClient()
-  await admin.from('strava_connections').upsert(
+  const { error: saveError } = await admin.from('strava_connections').upsert(
     {
       user_id: user.id,
       strava_athlete_id: tokenData.athlete?.id,
@@ -45,6 +45,11 @@ export async function GET(request: NextRequest) {
     },
     { onConflict: 'user_id' }
   )
+
+  if (saveError) {
+    console.error('Strava connection save error', saveError)
+    return NextResponse.redirect(`${origin}/strava?error=save`)
+  }
 
   try {
     await backfillActivities(admin, user.id, tokenData.access_token)
