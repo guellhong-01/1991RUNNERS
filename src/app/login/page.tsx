@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') || '/dashboard'
+  const next = searchParams.get('next') || '/calendar'
   const supabase = createClient()
   const [checking, setChecking] = useState(true)
 
