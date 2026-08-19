@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Profile } from '@/types'
-import { Calendar, Megaphone, Wallet, Settings, LogOut, Users, BookOpen, ClipboardList, Archive, ChevronDown, ChevronRight, Newspaper, Star, MessageSquare, Menu, X, Pencil, Camera, Trophy, Map } from 'lucide-react'
+import { Calendar, Megaphone, Wallet, Settings, LogOut, Users, BookOpen, ClipboardList, Archive, ChevronDown, ChevronRight, Newspaper, Star, MessageSquare, Menu, X, Pencil, Camera, Trophy, Map, Activity } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { compressImage } from '@/lib/compressImage'
 
@@ -135,6 +135,7 @@ export default function Sidebar({ profile }: { profile: Profile }) {
         <NavItem href="/profile" icon={<Users size={18} />} label="회원 프로필" />
         <NavItem href="/races" icon={<Trophy size={18} />} label="대회 일정" />
         <NavItem href="/calendar" icon={<Calendar size={18} />} label="뛰꼬양 캘린더" badge={newEventCount} />
+        <NavItem href="/strava" icon={<Activity size={18} />} label="스트라바 활동" />
         <div>
           <button
             onClick={() => setBoardOpen(!boardOpen)}
