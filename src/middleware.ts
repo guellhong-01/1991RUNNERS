@@ -32,7 +32,11 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  if (!user) return NextResponse.redirect(new URL('/login', request.url))
+  if (!user) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', pathname + request.nextUrl.search)
+    return NextResponse.redirect(loginUrl)
+  }
 
   return supabaseResponse
 }
