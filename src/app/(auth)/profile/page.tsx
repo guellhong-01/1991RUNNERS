@@ -6,13 +6,34 @@ import { ko } from 'date-fns/locale'
 import Link from 'next/link'
 import { AtSign, Edit, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 
+type SortKey = 'default' | 'name' | 'joined_at' | 'birthday' | 'pb_full' | 'pb_10k' | 'instagram'
+
+// "2:56:00"(풀마라톤) 또는 "38:15"(10K) 형식의 기록을 초 단위로 바꿔서 정확하게 비교할 수 있게 합니다.
+function parseTimeToSeconds(value?: string | null) {
+  if (!value) return null
+  const parts = value.split(':').map(Number)
+  if (parts.some((n) => Number.isNaN(n))) return null
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  return null
+}
+
+// "01051917814" 같은 숫자만 있는 전화번호를 "010-5191-7814" 형태로 보여줍니다.
+function formatPhone(value?: string | null) {
+  if (!value) return '-'
+  const digits = value.replace(/\D/g, '')
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
+  return value
+}
+
 export default function ProfilePage() {
   const supabase = createClient()
   const [profiles, setProfiles] = useState<any[]>([])
   const [currentProfile, setCurrentProfile] = useState<any>(null)
   const [userId, setUserId] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortKey, setSortKey] = useState<'default' | 'name' | 'joined_at' | 'birthday'>('default')
+  const [sortKey, setSortKey] = useState<SortKey>('default')
   const [sortAsc, setSortAsc] = useState(true)
 
   useEffect(() => {
@@ -31,7 +52,7 @@ export default function ProfilePage() {
     load()
   }, [])
 
-  const toggleSort = (key: 'name' | 'joined_at' | 'birthday') => {
+  const toggleSort = (key: Exclude<SortKey, 'default'>) => {
     if (sortKey === key) {
       setSortAsc(!sortAsc)
     } else {
@@ -40,23 +61,34 @@ export default function ProfilePage() {
     }
   }
 
+  const sortValue = (p: any, key: SortKey) => {
+    if (key === 'pb_full' || key === 'pb_10k') return parseTimeToSeconds(p[key])
+    return p[key]
+  }
+
   const filtered = profiles
     .filter(p => p.name?.includes(searchQuery))
     .sort((a, b) => {
       if (sortKey === 'default') return 0
-      const av = a[sortKey]
-      const bv = b[sortKey]
-      if (!av && !bv) return 0
-      if (!av) return 1
-      if (!bv) return -1
+      const av = sortValue(a, sortKey)
+      const bv = sortValue(b, sortKey)
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
       const cmp = av < bv ? -1 : av > bv ? 1 : 0
       return sortAsc ? cmp : -cmp
     })
 
-  const SortIcon = ({ column }: { column: 'name' | 'joined_at' | 'birthday' }) => {
+  const SortIcon = ({ column }: { column: Exclude<SortKey, 'default'> }) => {
     if (sortKey !== column) return <ArrowUpDown size={12} className="text-gray-300" />
     return sortAsc ? <ArrowUp size={12} className="text-[#c0392b]" /> : <ArrowDown size={12} className="text-[#c0392b]" />
   }
+
+  const SortableHeader = ({ column, label }: { column: Exclude<SortKey, 'default'>; label: string }) => (
+    <button onClick={() => toggleSort(column)} className="flex items-center gap-1 hover:text-gray-900">
+      {label} <SortIcon column={column} />
+    </button>
+  )
 
   const GradeBadge = ({ grade, role }: { grade?: string; role: string }) => {
     const label = role === 'admin' ? '운영진' : (grade || '준회원')
@@ -96,21 +128,27 @@ export default function ProfilePage() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-32">
-                  <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-gray-900">이름 <SortIcon column="name" /></button>
+                  <SortableHeader column="name" label="이름" />
                 </th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-16">등급</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-24">
-                  <button onClick={() => toggleSort('joined_at')} className="flex items-center gap-1 hover:text-gray-900">가입일 <SortIcon column="joined_at" /></button>
+                  <SortableHeader column="joined_at" label="가입일" />
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-16">
-                  <button onClick={() => toggleSort('birthday')} className="flex items-center gap-1 hover:text-gray-900">생일 <SortIcon column="birthday" /></button>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-24">
+                  <SortableHeader column="birthday" label="생일" />
                 </th>
                 {currentProfile?.role === 'admin' && (
                   <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-28">전화번호</th>
                 )}
-                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-20">PB (풀)</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-20">PB (10K)</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-24">인스타</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-20">
+                  <SortableHeader column="pb_full" label="PB (풀)" />
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-20">
+                  <SortableHeader column="pb_10k" label="PB (10K)" />
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 min-w-24">
+                  <SortableHeader column="instagram" label="인스타" />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -132,10 +170,10 @@ export default function ProfilePage() {
                     {p.joined_at ? format(new Date(p.joined_at), 'yyyy.MM', { locale: ko }) : '-'}
                   </td>
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                    {p.birthday ? format(new Date(p.birthday), 'MM/dd') : '-'}
+                    {p.birthday ? format(new Date(p.birthday), 'yyyy.MM.dd', { locale: ko }) : '-'}
                   </td>
                   {currentProfile?.role === 'admin' && (
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{p.phone || '-'}</td>
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatPhone(p.phone)}</td>
                   )}
                   <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{p.pb_full || '-'}</td>
                   <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{p.pb_10k || '-'}</td>
